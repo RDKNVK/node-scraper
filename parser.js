@@ -1,9 +1,13 @@
 // Print all of the news items on hackernews
 var jsdom = require("jsdom"),
-	fs = require("fs");
-
+    sqlite3 = require("sqlite3").verbose(),
+    db = new sqlite3.Database('job.sqlite'),
+    ins_stmt = db.prepare("INSERT INTO job VALUES(?,?,?,?,?,?,?)");/*,
+    check_stmt = db.prepare("SELECT count(*) FROM job WHERE webpage = ? AND title = ? AND link = ?");
+*/
 /*
  * array of objects of extracted job offers in form:
+ *  - webpage
  *  - title
  *  - perex
  *  - company
@@ -13,7 +17,7 @@ var jsdom = require("jsdom"),
  */
 var new_jobs = [],
     next_page = '',
-    stop = false;
+    stop = true;
 
 function extract(url) {
     jsdom.env({
@@ -22,9 +26,11 @@ function extract(url) {
         done: function(errors, window) {
             var $ = window.$;
 
+            console.log(errors);
+
             $("#joblist .list table tr").each(function() {
             	var temp = {};
-
+                temp.webpage    = 'http://www.jobs.cz';
             	temp.title 		= $('td .favourite h3 a', this).text();
 				temp.perex 		= $('td p', this).text();
 				temp.company 	= $('td .jobInfo .companyName', this).text();
@@ -47,6 +53,17 @@ function extract(url) {
             }
         }
     });
+}
+
+function save_to_db () {
+    console.log('attempting to save db');
+    for (var i = 0, ii = new_jobs.length; i < ii; i++){
+        var job = new_jobs[i];
+        ins_stmt.run(job.webpage, job.title, job.perex, job.company, job.city, job.date, job.link);
+    }
+
+    ins_stmt.finalize();
+    db.close();
 }
 
 extract('http://www.jobs.cz/search/?section=positions', undefined);
